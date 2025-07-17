@@ -1,0 +1,111 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id                 String         @id @default(uuid())
+  walletAddress      String         @unique
+  reputation         Int            @default(0)
+  expertiseTags      Json?
+  createdAt          DateTime       @default(now())
+
+  projects           Project[]      @relation("ProjectCreator")
+  donations          Donation[]
+  verifications      Verification[]
+  disputesRaised     Dispute[]      @relation("DisputesRaisedBy")
+  disputesResolved   Dispute[]      @relation("DisputesResolvedBy")
+  verifiedMilestones Milestone[]    @relation("UserVerifiedMilestones")
+}
+
+model Project {
+  id              String         @id @default(uuid())
+  ipfsHash        String
+  creatorId       String
+  creator         User           @relation("ProjectCreator", fields: [creatorId], references: [id])
+  status          ProjectStatus  @default(PENDING)
+  totalFunding    Float          @default(0)
+  createdAt       DateTime       @default(now())
+
+  milestones      Milestone[]
+  donations       Donation[]
+  disputes        Dispute[]
+}
+
+model Milestone {
+  id              String           @id @default(uuid())
+  projectId       String
+  project         Project          @relation(fields: [projectId], references: [id])
+  ipfsHash        String
+  order           Int
+  status          MilestoneStatus @default(PENDING)
+  verifierId      String?
+  verifier        User?            @relation("UserVerifiedMilestones", fields: [verifierId], references: [id])
+  verifiedAt      DateTime?
+  createdAt       DateTime         @default(now())
+
+  verifications   Verification[]
+}
+
+model Donation {
+  id              String      @id @default(uuid())
+  donorId         String
+  donor           User        @relation(fields: [donorId], references: [id])
+  projectId       String
+  project         Project     @relation(fields: [projectId], references: [id])
+  amount          Float
+  txHash          String
+  createdAt       DateTime    @default(now())
+}
+
+model Verification {
+  id              String      @id @default(uuid())
+  milestoneId     String
+  milestone       Milestone   @relation(fields: [milestoneId], references: [id])
+  verifierId      String
+  verifier        User        @relation(fields: [verifierId], references: [id])
+  verdict         Boolean
+  comment         String?
+  createdAt       DateTime    @default(now())
+}
+
+model Dispute {
+  id              String         @id @default(uuid())
+  projectId       String
+  project         Project        @relation(fields: [projectId], references: [id])
+  raisedById      String
+  raisedBy        User           @relation("DisputesRaisedBy", fields: [raisedById], references: [id])
+  resolvedById    String?
+  resolvedBy      User?          @relation("DisputesResolvedBy", fields: [resolvedById], references: [id])
+  status          DisputeStatus  @default(OPEN)
+  resolutionNote  String?
+  ipfsEvidence    String?
+  createdAt       DateTime       @default(now())
+  resolvedAt      DateTime?
+}
+
+enum ProjectStatus {
+  PENDING
+  FUNDING
+  IN_PROGRESS
+  DISPUTED
+  COMPLETED
+}
+
+enum MilestoneStatus {
+  PENDING
+  SUBMITTED
+  VERIFIED
+  DISPUTED
+  REJECTED
+}
+
+enum DisputeStatus {
+  OPEN
+  RESOLVED
+  REJECTED
+}
